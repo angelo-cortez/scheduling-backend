@@ -31,7 +31,7 @@ All endpoints are located under the `api/` path. The base URL for all endpoints 
 
 ## Endpoints
 
-### Doctors
+### List Doctors
 
 - **Endpoint:** `doctors/`
 - **Method:** GET
@@ -42,6 +42,17 @@ All endpoints are located under the `api/` path. The base URL for all endpoints 
 curl http://127.0.0.1:8000/api/doctors/
 ```
 
+### Add a Doctor
+- **Endpoint:** doctors/add/
+- **Method:** POST
+- **Description:** Adds a new doctor.
+Example API URL:
+```bash
+curl -X POST -H "Content-Type: application/json" -d '{
+    "first_name": "John",
+    "last_name": "Doe"
+}' http://127.0.0.1:8000/api/doctors/add/
+```
 
 ### Appointments
 

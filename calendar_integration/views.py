@@ -1,10 +1,10 @@
 # Standard library imports
-from datetime import datetime, timedelta
+from datetime import datetime
 import json
 
 # Django imports
 from django.http import JsonResponse, HttpResponseBadRequest
-from django.db.models import Q
+from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
@@ -13,18 +13,34 @@ from django.views.decorators.csrf import csrf_exempt
 from .models import Doctor, Appointment
 from .helpers import parse_request_data, validate_date_time, get_doctor, check_appointment_limit
 
+@csrf_exempt # This is a temporary solution to allow POST requests without CSRF token
+@require_http_methods(["POST"])
+def add_doctor(request):
+    data = json.loads(request.body)
 
+    # Validate the data
+    required_fields = ['first_name', 'last_name']
+    missing_fields = [field for field in required_fields if field not in data or not data[field]]
+
+    if missing_fields:
+        return HttpResponseBadRequest(f'Missing or empty required fields: {", ".join(missing_fields)}')
+
+    # Create a new doctor
+    doctor = Doctor.objects.create(first_name=data['first_name'], last_name=data['last_name'])
+
+    return JsonResponse({"id": doctor.id, "message": "Doctor added"})
 
 @require_http_methods(["GET"])
 def list_doctors(request):
     doctors = Doctor.objects.all().values()
     return JsonResponse(list(doctors), safe=False)
 
+
 @require_http_methods(["GET"])
 def list_appointments(request, doctor_id, date):
     date = parse_datetime(date)
-    start_of_day = datetime.combine(date, datetime.min.time())
-    end_of_day = datetime.combine(date, datetime.max.time())
+    start_of_day = timezone.make_aware(datetime.combine(date, datetime.min.time()))
+    end_of_day = timezone.make_aware(datetime.combine(date, datetime.max.time()))
     appointments = Appointment.objects.filter(doctor_id=doctor_id, date_time__range=(start_of_day, end_of_day)).values()
     return JsonResponse(list(appointments), safe=False)
 
@@ -47,8 +63,13 @@ def add_appointment(request):
 
     return JsonResponse({"id": appointment.id, "message": "Appointment added"})
 
-@csrf_exempt # This is a temporary solution to allow POST requests without CSRF token
+@csrf_exempt
 @require_http_methods(["DELETE"])
 def delete_appointment(request, appointment_id):
-    Appointment.objects.get(id=appointment_id).delete()
+    try:
+        appointment = Appointment.objects.get(id=appointment_id)
+    except Appointment.DoesNotExist:
+        return JsonResponse({"error": "Appointment not found"}, status=404)
+
+    appointment.delete()
     return JsonResponse({"message": "Appointment deleted"})
